@@ -1,7 +1,7 @@
 import sqlite3
 
 # connect to the database
-conn = sqlite3.connect('PJ2_world.db')
+conn = sqlite3.connect('world.db')
 
 # create a callable variable to interact with the database
 c = conn.cursor()
