@@ -1,0 +1,150 @@
+*&---------------------------------------------------------------------*
+*& Report ZTEST_SALESENTRY_VALIDATOR
+*&---------------------------------------------------------------------*
+*& CHRISTIAN SALCEDO
+*& SAP BUSINESS ANALYST INTERN - SUMMER 19
+*&---------------------------------------------------------------------*
+REPORT ZTEST_SALESENTRY_VALIDATOR.
+
+***GLOBAL DECLARATIONS***
+***************************************************************************************************************************************************
+TYPE-POOLS: SLIS.
+TABLES: VBAK, VBAP.
+* UTLIZE A GLOBAL CONSTANT FOR TVARVC
+CONSTANTS: LC_TVARVC TYPE C LENGTH 22 VALUE 'ZQTD_E183_SALES_ORG_US', "LC = LOCAL CONSTANT
+           LC_TYPE TYPE C LENGTH 1 VALUE 'S'. " DEFINED THE NAME AND VALUE PASSED THROUGH TVARVC INTO FUNCTION MODULE OF READ
+********************************************************************************************************************************************
+********************************************************************************************************************************************
+"NOTE: YOU CAN DO A READ AGAINST THE END-USER INPUT FOR VKORG TO VALIDATE IF VALUE MATCHES RANGE OF TVARVC, OR LOOP THROUGH IT MANUALLY
+* THE TVARVC VALUE IS "ZQTD_E183_SALES_ORG_US", IT ALREADY EXISTS, IMPLEMENT IT.
+* TVARV IS A "CLIENT-SPECIFIC" TABLE THAT CONTAINS IN IT THE ZQTD VARIABLE WHICH ACTS AS A NON-PROGRAMMERS WAY OF UPDATING TABLE INFO
+*                                     TVARVC TABLE FIELDS
+*FIELD                                            DATA ELEMENT  CHECKTABLE  DATATYPE  LENGTH  DECIMALS
+*MANDT      CLIENT ID                             SYMANDT                   CLNT      3       0
+*NAME       ABAP: NAME OF VARIANT VARIABLE        RVARI_VNAM                CHAR      30      0
+*TYPE       ABAP: TYPE OF SELECTION               RSSCR_KIND                CHAR      1       0
+*NUMB       ABAP: CURRENT SELECTION NUMBER        TVARV_NUMB                NUMC      4       0
+*SIGN       ABAP: ID: I/E (INCLUDE/EXCLUDE VALUES)TVARV_SIGN                CHAR      1       0
+*OPTI       ABAP: SELECTION OPTION (EQ/BT/CP/...) TVARV_OPTI                CHAR      2       0
+*LOW        LOW FIELD                             TVARV TVARV_LOW           CHAR      255     0
+*HIGH       HIGH FIELD TVARV                      TVARV_HGH                 CHAR      255     0
+*CLIE_INDEP CHAR01 DATA ELEMENT FOR SYST          SYCHAR01                  CHAR      1       0
+********************************************************************************************************************************************
+***TYPE AND DATA DECLARATIONS***
+********************************************************************************************************************************************
+* DATA STRUCTURE DECLARATION FOR VBAK AND VBAP FIELDS
+TYPES: BEGIN OF TY_VTAB,
+        " FIELDNAME TYPE DATA ELEMENT,
+        VKORG TYPE VKORG,
+        VBELN TYPE VBELN,
+        POSNR TYPE POSNR,
+        MATNR TYPE MATNR,
+        KWMENG TYPE KWMENG,
+        LIFSK TYPE LIFSK,
+       END OF TY_VTAB.
+
+* DATA STORAGE DECLARATION
+* A FIELD CATALOG IS REQUIRED FOR EVERY ALV LIST OUTPUT TO ADDRESS LIST FUNCTIONALITY
+* GIVE THE TY_VTAB A NEW DATA VARIABLE FOR STORAGE AND TO SET AN INDEX TABLE AND WORK AREA TO TRANSFER DATA TO ALV DISPLAY
+DATA: VTAB TYPE STANDARD TABLE OF TY_VTAB," UTILIZE TYPE STANDARD TABLE OF TO SET DATA AS STANDARD TABLES VBAK AND VBAP
+      LT_TVARVC TYPE ZTECC_TVARVC, " INPUT TABLE, GENERIC TABLES ALREADY DEFINED WITH STRUCTURE
+      LT_TVARVC_TAB TYPE ZTVARVC_T, " OUTPUT TABLE
+      LS_TVARVC LIKE LINE OF LT_TVARVC,
+      "LS_TYPE TYPE ZTVARVC_T,
+      "LS_TVARVC_TAB LIKE LINE OF LT_TVARVC_TAB,
+      "IT_VTAB TYPE TY_VTAB,
+      "WA_VTAB TYPE TY_VTAB,
+      IT_FIELDCAT TYPE SLIS_T_FIELDCAT_ALV,
+      WA_FIELDCAT TYPE SLIS_FIELDCAT_ALV.
+********************************************************************************************************************************************
+
+START-OF-SELECTION.
+  " CHECK IF RIGHT TABLE BEING REFERENCED IN THE SELECT-OPTIONS FOR
+  " BUILD THE FIELD CATALOG
+  " TO RENAME THE SELECT-OPTION FIELDNAMES (S_FIELD) WHEN USER IS INPUTTING FILTERS AND PERMIT LANGUAGE CONVERSIONS, USE: GOTO --> TEXT ELEMENTS --> SELECTION TEXTS
+
+  " THE VARIABLE OF TVARVC CAN BE SET IN THE PROGRAM AS EITHER A PARAMETER OR S SELECT-OPTION
+  SELECT-OPTIONS: S_VKORG FOR VBAK-VKORG NO INTERVALS NO-EXTENSION OBLIGATORY,
+                  " S_VKORG FOR VBAK-VKORG NO INTERVALS NO-EXTENSION OBLIGATORY, " THIS INPUT REQUIRES TVARVC
+                  " TVARVC DIRECTORY RANGE: SIGN=?, OPTI=EQ, LOW=1712, HIGH=1794
+                  S_VBELN FOR VBAK-VBELN OBLIGATORY,
+                  S_POSNR FOR VBAP-POSNR,
+                  S_MATNR FOR VBAP-MATNR,
+                  S_KWMENG FOR VBAP-KWMENG NO-EXTENSION,
+                  S_LIFSK FOR VBAK-LIFSK NO-EXTENSION.
+
+" PASSED LOCAL CONSTANTS TO LOCAL STRUCTURE
+LS_TVARVC-VAR_NAME = LC_TVARVC.
+LS_TVARVC-VAR_TYPE = LC_TYPE.
+
+APPEND LS_TVARVC TO LT_TVARVC. "PUTTING STRUCTURE INTO TABLE, ONE LINE
+
+CALL FUNCTION 'ZECC_READ_TVARVC'
+EXPORTING IT_TVARVC = LT_TVARVC
+  CHANGING CT_TABLE = LT_TVARVC_TAB. " PULLS DATA IN
+
+  SELECT K~VKORG P~VBELN P~POSNR P~MATNR P~KWMENG K~LIFSK
+    " TRANSFER ALL SELECTED DATA INTO THE DATA DECLARATION OF VTAB
+    INTO TABLE VTAB
+    FROM VBAK AS K INNER JOIN VBAP AS P
+    ON K~VBELN = P~VBELN
+    " REFERENCE EACH SELECT-OPTION TO ENSURE DATA EXTRACTION'S INTEGRITY.
+    WHERE: K~VKORG IN S_VKORG AND K~VBELN IN S_VBELN AND P~POSNR IN S_POSNR AND P~MATNR IN S_MATNR AND P~KWMENG IN S_KWMENG AND K~LIFSK IN S_LIFSK.
+ " APPEND WA_FIELDCAT TO IT_FIELDCAT.
+  WA_FIELDCAT-FIELDNAME = 'VKORG'. " FIELDNAME IN THE DATABALES ITSELF.
+  WA_FIELDCAT-SELTEXT_M = 'SALES ORG'. " COLUMN DESCRIPTION IN THE OUTPUT. LOTS OF FLEXIBILITY FOR OTHER FUNCTIONS HERE.
+  APPEND WA_FIELDCAT TO IT_FIELDCAT.
+
+  WA_FIELDCAT-FIELDNAME = 'VBELN'.
+  WA_FIELDCAT-SELTEXT_M = 'SALES ORDER NUMBER'.
+  APPEND WA_FIELDCAT TO IT_FIELDCAT.
+
+  WA_FIELDCAT-FIELDNAME = 'POSNR'.
+  WA_FIELDCAT-SELTEXT_M = 'SALES LINE NUMBER'.
+  APPEND WA_FIELDCAT TO IT_FIELDCAT.
+
+  WA_FIELDCAT-FIELDNAME = 'MATNR'.
+  WA_FIELDCAT-SELTEXT_M = 'MATERIAL'.
+  APPEND WA_FIELDCAT TO IT_FIELDCAT.
+
+  WA_FIELDCAT-FIELDNAME = 'KWMENG'.
+  WA_FIELDCAT-SELTEXT_M = 'SALES LINE NUMBER'.
+  APPEND WA_FIELDCAT TO IT_FIELDCAT.
+
+  WA_FIELDCAT-FIELDNAME = 'LIFSK'.
+  WA_FIELDCAT-SELTEXT_M = 'DELIVERY BLOCK'.
+  APPEND WA_FIELDCAT TO IT_FIELDCAT.
+**************************************************************************************************************************************************
+***CONDITIONAL MESSAGE TO ANNOUNCE IF DATA SUCCESSFULLY APPENDED TO LOCAL TABLE***
+**************************************************************************************************************************************************
+  IF SY-SUBRC = 0.
+    MESSAGE 'SUCCESSFULLY APPENDED TO INDEX AND WORK AREA TABLES AND IMPORTED DATA TO VTAB FOR DISPLAY' TYPE 'I'.
+  ENDIF.
+**************************************************************************************************************************************************
+***PROGRESS BAR INDICATING TIME TILL COMPLETION OF EXECUTION***
+**************************************************************************************************************************************************
+DATA: INDEX TYPE I.
+DO 4 TIMES.
+INDEX = SY-INDEX * 25.
+
+  CALL FUNCTION 'SAPGUI_PROGRESS_INDICATOR'
+       EXPORTING
+            PERCENTAGE = INDEX
+            TEXT       = 'PROCESSING DATA FOR ALV DISPLAY'.
+  WAIT UP TO 1 SECONDS.
+ENDDO.
+**************************************************************************************************************************************************
+***ALV DISPLAY CALL***
+**************************************************************************************************************************************************
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    " HERE YOU WILL EXPORT ALL DATA FROM THE INDEX TABLE TO THE ALV DISPLAY, SET THE INDEX TABLE TO ITSELF, THEN REFERENCE THE OUTPUT AS THE LOCAL TABLE VTAB
+    EXPORTING
+      IT_FIELDCAT            = IT_FIELDCAT
+    " BOTH T_OUTTAB & PROGRAM_ERROR ARE PARAMETERS THAT ARE VITAL AND CANNOT
+    "BE WRITTEN INTO SYNTAX IN ANY OTHER WAY.
+    TABLES
+      T_OUTTAB               = VTAB
+    EXCEPTIONS
+      INCONSISTENT_INTERFACE = 1
+      PROGRAM_ERROR          = 2
+      OTHERS                 = 3.
