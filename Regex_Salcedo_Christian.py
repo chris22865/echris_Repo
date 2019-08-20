@@ -12,7 +12,7 @@ clinic_addr = []
 count = 0
 
 # open the txt file to access it, use 'r' to read it all
-file = open('PJ1_StatesboroClinicInfo.txt', 'r')
+file = open('StatesboroClinicInfo.txt', 'r')
 
 for line in file:
     # within the txt file exists extra lines detailing num of doctors and reviews
