@@ -59,9 +59,6 @@ def etldrop():
 		#print(SplitData)
 	
 	# add it to the array
-	
-	# turn the array back into a csv with array.join() or whatever the fuck it is
-	
 	# set fileToSend equal to that new csv
 	
 	r = requests.post('https://russellthackston.me/etl-drop/index.php', headers = {'Authorization':'55658d426732a4fb1f3715cff0cd4056'}, files = {filename: linesToSend})
